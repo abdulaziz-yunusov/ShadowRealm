@@ -1,0 +1,265 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Realm of Shadows — Interactive World Map RPG</title>
+  <meta name="description" content="Explore a vast fantasy world map, battle monsters, complete quests, and conquer the darkness in this interactive RPG adventure.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Background particles -->
+<canvas id="bg-canvas"></canvas>
+
+<!-- ════ TITLE SCREEN ════ -->
+<div id="title-screen">
+  <div class="title-logo">Realm of Shadows</div>
+  <div class="title-subtitle">Explore the Unknown · Conquer the Darkness</div>
+  <div class="title-menu">
+    <button class="title-btn primary" id="btn-new-game" onclick="showCharCreation()">🗡️ New Adventure</button>
+    <button class="title-btn" id="btn-continue" onclick="continueGame()" style="display:none">📜 Continue Journey</button>
+  </div>
+</div>
+
+<!-- ════ CHARACTER CREATION ════ -->
+<div id="char-creation">
+  <div class="creation-panel">
+    <h2>⚔️ Forge Your Hero</h2>
+    <input type="text" class="name-input" id="hero-name-input" placeholder="Enter your hero's name..." maxlength="20">
+    <div class="class-label">Choose Your Path:</div>
+    <div class="class-grid" id="class-grid"></div>
+    <div class="class-stats-preview" id="class-preview"></div>
+    <button class="btn-start-game" id="btn-begin" onclick="beginAdventure()" disabled>Begin Your Journey</button>
+  </div>
+</div>
+
+<!-- ════ MAIN GAME ════ -->
+<div id="game-wrapper">
+
+  <!-- Top HUD -->
+  <header class="top-hud">
+    <div class="hud-avatar" id="hud-avatar">⚔️</div>
+    <div class="hud-info">
+      <div class="hud-name" id="hud-name">Hero</div>
+      <div class="hud-class" id="hud-class">Warrior · Lv.1</div>
+    </div>
+    <div class="hud-bars">
+      <div class="hud-bar-row">
+        <span class="hud-bar-icon">❤️</span>
+        <div class="bar-track">
+          <div class="bar-fill hp-fill" id="hud-hp-fill" style="width:100%"></div>
+        </div>
+        <span class="bar-text" id="hud-hp-text">100/100</span>
+      </div>
+      <div class="hud-bar-row">
+        <span class="hud-bar-icon">✨</span>
+        <div class="bar-track">
+          <div class="bar-fill xp-fill" id="hud-xp-fill" style="width:0%"></div>
+        </div>
+        <span class="bar-text" id="hud-xp-text">0/100</span>
+      </div>
+    </div>
+    <div class="hud-stats">
+      <div class="hud-stat gold">
+        <span class="stat-icon">💰</span>
+        <span class="stat-value" id="hud-gold">0</span>
+      </div>
+      <div class="hud-stat">
+        <span class="stat-icon">🗺️</span>
+        <span class="stat-value" id="hud-explored">0</span>
+      </div>
+      <div class="hud-stat">
+        <span class="stat-icon">💀</span>
+        <span class="stat-value" id="hud-kills">0</span>
+      </div>
+    </div>
+    <div class="hud-actions">
+      <button class="hud-btn" id="btn-mute" onclick="SoundEngine.toggleMute()" title="Toggle Sound">🔊</button>
+      <button class="hud-btn" id="btn-center-map" onclick="centerOnPlayer()" title="Center Map">📍</button>
+      <button class="hud-btn" id="btn-save" onclick="saveGame()" title="Save Game">💾</button>
+    </div>
+  </header>
+
+  <!-- Map Area -->
+  <div class="map-area">
+    <canvas id="map-canvas"></canvas>
+
+    <div class="turn-indicator" id="turn-indicator">Turn 1 · Moves: 3/3</div>
+
+    <div class="minimap-container">
+      <canvas id="minimap-canvas"></canvas>
+    </div>
+
+    <div class="map-controls">
+      <button class="map-ctrl-btn" id="btn-zoom-in" onclick="zoomMap(1)">+</button>
+      <button class="map-ctrl-btn" id="btn-zoom-out" onclick="zoomMap(-1)">−</button>
+      <button class="map-ctrl-btn" id="btn-end-turn" onclick="endTurn()" title="End Turn">⏭️</button>
+    </div>
+
+    <!-- Tooltip -->
+    <div class="map-tooltip" id="map-tooltip">
+      <div class="tt-name" id="tt-name"></div>
+      <div class="tt-type" id="tt-type"></div>
+      <div class="tt-desc" id="tt-desc"></div>
+    </div>
+  </div>
+
+  <!-- Side Panel -->
+  <div class="side-panel">
+    <div class="panel-tabs">
+      <button class="panel-tab active" id="ptab-location" onclick="switchPanel('location')">📍 Location</button>
+      <button class="panel-tab" id="ptab-inventory" onclick="switchPanel('inventory')">🎒 Items</button>
+      <button class="panel-tab" id="ptab-stats" onclick="switchPanel('stats')">⚔️ Stats</button>
+      <button class="panel-tab" id="ptab-quests" onclick="switchPanel('quests')">📜 Quests</button>
+      <button class="panel-tab" id="ptab-log" onclick="switchPanel('log')">📖 Log</button>
+      <button class="panel-tab" id="ptab-achievements" onclick="switchPanel('achievements')">🏆 Trophies</button>
+    </div>
+
+    <div class="panel-content">
+      <!-- Location Section -->
+      <div class="panel-section active" id="panel-location">
+        <div class="loc-header">
+          <div class="loc-icon" id="loc-icon">🏕️</div>
+          <div class="loc-name" id="loc-name">Starting Camp</div>
+          <div class="loc-type" id="loc-type">Safe Zone</div>
+        </div>
+        <div class="loc-desc" id="loc-desc">Your journey begins here. The world stretches out before you, full of mystery and danger. Click adjacent tiles to explore.</div>
+        <div class="loc-actions" id="loc-actions"></div>
+      </div>
+
+      <!-- Inventory Section -->
+      <div class="panel-section" id="panel-inventory">
+        <div class="inv-grid" id="inv-grid"></div>
+        <div class="item-detail" id="item-detail" style="display:none">
+          <div class="item-name" id="item-name"></div>
+          <div class="item-desc" id="item-desc"></div>
+          <button class="item-use-btn" id="item-use-btn" onclick="useSelectedItem()">Use</button>
+        </div>
+        <div class="equip-section">
+          <div class="equip-title">Equipped</div>
+          <div class="equip-slot-row">
+            <span class="slot-label">Weapon</span>
+            <span class="slot-item" id="equip-weapon">Fists</span>
+          </div>
+          <div class="equip-slot-row">
+            <span class="slot-label">Armor</span>
+            <span class="slot-item" id="equip-armor">Cloth</span>
+          </div>
+          <div class="equip-slot-row">
+            <span class="slot-label">Amulet</span>
+            <span class="slot-item" id="equip-amulet">None</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Section -->
+      <div class="panel-section" id="panel-stats">
+        <div class="stats-grid" id="stats-grid"></div>
+      </div>
+
+      <!-- Quests Section -->
+      <div class="panel-section" id="panel-quests">
+        <div id="quest-list"></div>
+      </div>
+
+      <!-- Log Section -->
+      <div class="panel-section" id="panel-log">
+        <div class="event-log" id="event-log"></div>
+      </div>
+
+      <!-- Achievements Section -->
+      <div class="panel-section" id="panel-achievements">
+        <div class="achievements-list" id="achievements-list"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ════ COMBAT OVERLAY ════ -->
+<div id="combat-overlay">
+  <div class="combat-arena">
+    <div class="combat-header" id="combat-title">⚔️ Battle!</div>
+    <div class="combat-fighters">
+      <div class="fighter-card player-card" id="fighter-player">
+        <div class="fighter-sprite" id="fighter-player-sprite">🧙</div>
+        <div class="fighter-name" id="fighter-player-name">Hero</div>
+        <div class="fighter-hp-bar">
+          <div class="fighter-hp-fill hp-fill" id="fighter-player-hp" style="width:100%"></div>
+        </div>
+        <div class="fighter-hp-text" id="fighter-player-hp-text">100/100</div>
+        <div class="status-effects" id="fighter-player-effects"></div>
+      </div>
+      <div class="combat-vs">⚔️</div>
+      <div class="fighter-card enemy-card" id="fighter-enemy">
+        <div class="fighter-sprite" id="fighter-enemy-sprite">🐺</div>
+        <div class="fighter-name" id="fighter-enemy-name">Wolf</div>
+        <div class="fighter-hp-bar">
+          <div class="fighter-hp-fill enemy-fill" id="fighter-enemy-hp" style="width:100%"></div>
+        </div>
+        <div class="fighter-hp-text" id="fighter-enemy-hp-text">30/30</div>
+        <div class="status-effects" id="fighter-enemy-effects"></div>
+      </div>
+    </div>
+    <div class="combo-counter" id="combo-counter"></div>
+    <div class="combat-log" id="combat-log"></div>
+    <div class="combat-actions" id="combat-actions">
+      <button class="combat-btn attack" onclick="combatAction('attack')">⚔️ Attack</button>
+      <button class="combat-btn finisher" id="combat-finisher-btn" onclick="combatAction('finisher')" style="display:none">FINISHER</button>
+      <button class="combat-btn defend" onclick="combatAction('defend')">🛡️ Defend</button>
+      <button class="combat-btn heal-btn" id="combat-heal-btn" onclick="combatAction('heal')">🧪 Heal</button>
+      <button class="combat-btn flee" onclick="combatAction('flee')">🏃 Flee</button>
+    </div>
+    <div class="combat-actions ability-actions" id="combat-ability-actions" style="margin-top: 12px; border-top: 1px solid rgba(80, 120, 200, 0.15); padding-top: 12px; width: 100%;">
+      <!-- Dynamically generated ability buttons will appear here -->
+    </div>
+  </div>
+</div>
+
+<!-- ════ DIALOGUE OVERLAY ════ -->
+<div id="dialogue-overlay">
+  <div class="dialogue-box">
+    <div class="dialogue-header">
+      <div class="dialogue-portrait" id="dialogue-portrait">💬</div>
+      <div class="dialogue-speaker" id="dialogue-speaker">NPC Name</div>
+    </div>
+    <div class="dialogue-body">
+      <div class="dialogue-text" id="dialogue-text">Dialogue line goes here...</div>
+    </div>
+    <div class="dialogue-options" id="dialogue-options">
+      <!-- Options will be generated dynamically -->
+    </div>
+  </div>
+</div>
+
+<!-- ════ DEATH SCREEN ════ -->
+<div id="death-overlay">
+  <div class="death-title">YOU HAVE FALLEN</div>
+  <div class="death-stats" id="death-stats"></div>
+  <button class="title-btn primary" onclick="restartGame()">🔄 Try Again</button>
+</div>
+
+<!-- ════ VICTORY SCREEN ════ -->
+<div id="victory-overlay">
+  <div class="victory-title">🏆 REALM CONQUERED!</div>
+  <div class="death-stats" id="victory-stats"></div>
+  <button class="title-btn primary" onclick="restartGame()">🔄 New Adventure</button>
+</div>
+
+<!-- Achievement Toast -->
+<div class="achievement-toast" id="achievement-toast">
+  <div class="achievement-toast-icon" id="ach-toast-icon">🏆</div>
+  <div class="achievement-toast-details">
+    <div style="font-size: 0.65rem; color: #ffb300; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Achievement Unlocked!</div>
+    <div class="achievement-toast-title" id="ach-toast-title">First Blood</div>
+    <div class="achievement-toast-desc" id="ach-toast-desc">Defeat 1 enemy.</div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="game.js"></script>
+</body>
+</html>
