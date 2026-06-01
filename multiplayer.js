@@ -72,15 +72,17 @@ const MP = {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     this.roomCode = code;
 
-    this.peer = new Peer('realm-' + code, {
-      host: '0.peerjs.com',
-      port: 443,
-      secure: true,
-      path: '/',
-      key: 'peerjs',
-    });
+    this.peer = new Peer('realm-' + code);
+
+    // Timeout if the signalling server never responds
+    const openTimeout = setTimeout(() => {
+      if (!this.peer || this.peer.disconnected) return;
+      this.setStatus('❌ Could not reach PeerJS server. Check your connection and try again.');
+      this.peer.destroy();
+    }, 10000);
 
     this.peer.on('open', () => {
+      clearTimeout(openTimeout);
       document.getElementById('mp-room-code-display').textContent = code;
       document.getElementById('mp-room-code-box').style.display = 'block';
       this.setStatus('⏳ Waiting for a player to join...');
@@ -112,15 +114,17 @@ const MP = {
     document.getElementById('mp-status-section').style.display = 'block';
     this.setStatus('🔄 Connecting to room ' + code + '...');
 
-    this.peer = new Peer(undefined, {
-      host: '0.peerjs.com',
-      port: 443,
-      secure: true,
-      path: '/',
-      key: 'peerjs',
-    });
+    this.peer = new Peer(undefined);
+
+    // Timeout if the signalling server never responds
+    const openTimeout = setTimeout(() => {
+      if (!this.peer || this.peer.disconnected) return;
+      this.setStatus('❌ Could not reach PeerJS server. Check your connection and try again.');
+      this.peer.destroy();
+    }, 10000);
 
     this.peer.on('open', () => {
+      clearTimeout(openTimeout);
       const conn = this.peer.connect('realm-' + code, { reliable: true });
       this.conn = conn;
       this.setupConnection(conn);
