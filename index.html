@@ -18,7 +18,35 @@
   <div class="title-subtitle">Explore the Unknown · Conquer the Darkness</div>
   <div class="title-menu">
     <button class="title-btn primary" id="btn-new-game" onclick="showCharCreation()">🗡️ New Adventure</button>
+    <button class="title-btn primary mp-btn" onclick="showMultiplayerLobby()">⚔️ Multiplayer (2 Players)</button>
     <button class="title-btn" id="btn-continue" onclick="continueGame()" style="display:none">📜 Continue Journey</button>
+  </div>
+</div>
+
+<!-- ════ MULTIPLAYER LOBBY ════ -->
+<div id="mp-lobby">
+  <div class="mp-lobby-panel">
+    <div class="mp-lobby-title">⚔️ Multiplayer</div>
+    <div class="mp-lobby-sub">Fight alongside or against another hero online.<br>Uses WebRTC — no account needed.</div>
+
+    <!-- Connect section -->
+    <div id="mp-connect-section">
+      <button class="title-btn primary" onclick="mpCreateRoom()">🏠 Host a Game</button>
+      <div class="mp-or">— or join a friend's game —</div>
+      <input type="text" id="mp-join-code" class="mp-code-input" placeholder="Enter 6-char room code..." maxlength="6" />
+      <button class="title-btn" onclick="mpJoinRoom()">🔗 Join Game</button>
+    </div>
+
+    <!-- Status section (shown after connect/host) -->
+    <div id="mp-status-section" style="display:none">
+      <div id="mp-room-code-box" style="display:none">
+        <div class="mp-room-label">Your Room Code — Share with friend:</div>
+        <div class="mp-room-code-big" id="mp-room-code-display">------</div>
+      </div>
+      <div class="mp-status-text" id="mp-status">Initializing...</div>
+    </div>
+
+    <button class="title-btn" onclick="mpBackToTitle()" style="margin-top: 24px">↩️ Back to Title</button>
   </div>
 </div>
 
@@ -79,6 +107,11 @@
       <button class="hud-btn" id="btn-center-map" onclick="centerOnPlayer()" title="Center Map">📍</button>
       <button class="hud-btn" id="btn-save" onclick="saveGame()" title="Save Game">💾</button>
     </div>
+    <!-- Multiplayer: opponent badge + chat toggle -->
+    <div id="mp-hud-section" style="display:none">
+      <div id="mp-connection-badge" class="mp-badge connected">⚔️ Online</div>
+      <button class="hud-btn" onclick="toggleMpChat()" title="Chat">💬</button>
+    </div>
   </header>
 
   <!-- Map Area -->
@@ -86,6 +119,9 @@
     <canvas id="map-canvas"></canvas>
 
     <div class="turn-indicator" id="turn-indicator">Turn 1 · Moves: 3/3</div>
+
+    <!-- Multiplayer Opponent HUD overlay -->
+    <div id="mp-opp-hud" class="mp-opp-hud" style="display:none"></div>
 
     <div class="minimap-container">
       <canvas id="minimap-canvas"></canvas>
@@ -102,6 +138,20 @@
       <div class="tt-name" id="tt-name"></div>
       <div class="tt-type" id="tt-type"></div>
       <div class="tt-desc" id="tt-desc"></div>
+    </div>
+
+    <!-- Multiplayer Chat Panel -->
+    <div id="mp-chat-panel" class="mp-chat-panel" style="display:none">
+      <div class="mp-chat-header">
+        <span>💬 Chat</span>
+        <button onclick="toggleMpChat()" class="mp-chat-close">✕</button>
+      </div>
+      <div id="mp-chat-log" class="mp-chat-log"></div>
+      <div class="mp-chat-input-row">
+        <input type="text" id="mp-chat-input" class="mp-chat-input" placeholder="Say something..." maxlength="80"
+          onkeydown="if(event.key==='Enter') mpSendChat()" />
+        <button class="mp-chat-send" onclick="mpSendChat()">Send</button>
+      </div>
     </div>
   </div>
 
@@ -177,7 +227,7 @@
 
 </div>
 
-<!-- ════ COMBAT OVERLAY ════ -->
+<!-- ════ COMBAT OVERLAY (shared by PvE & PvP) ════ -->
 <div id="combat-overlay">
   <div class="combat-arena">
     <div class="combat-header" id="combat-title">⚔️ Battle!</div>
@@ -205,14 +255,25 @@
     <div class="combo-counter" id="combo-counter"></div>
     <div class="combat-log" id="combat-log"></div>
     <div class="combat-actions" id="combat-actions">
-      <button class="combat-btn attack" onclick="combatAction('attack')">⚔️ Attack</button>
+      <!-- PvP: buttons call pvpAction() or combatAction() depending on mode -->
+      <button class="combat-btn attack" onclick="pvpAction('attack')">⚔️ Attack</button>
       <button class="combat-btn finisher" id="combat-finisher-btn" onclick="combatAction('finisher')" style="display:none">FINISHER</button>
-      <button class="combat-btn defend" onclick="combatAction('defend')">🛡️ Defend</button>
-      <button class="combat-btn heal-btn" id="combat-heal-btn" onclick="combatAction('heal')">🧪 Heal</button>
-      <button class="combat-btn flee" onclick="combatAction('flee')">🏃 Flee</button>
+      <button class="combat-btn defend" onclick="pvpAction('defend')">🛡️ Defend</button>
+      <button class="combat-btn heal-btn" id="combat-heal-btn" onclick="pvpAction('heal')">🧪 Heal</button>
+      <button class="combat-btn flee" onclick="pvpAction('flee')">🏃 Flee</button>
     </div>
-    <div class="combat-actions ability-actions" id="combat-ability-actions" style="margin-top: 12px; border-top: 1px solid rgba(80, 120, 200, 0.15); padding-top: 12px; width: 100%;">
-      <!-- Dynamically generated ability buttons will appear here -->
+    <div class="combat-actions ability-actions" id="combat-ability-actions" style="margin-top: 12px; border-top: 1px solid rgba(80, 120, 200, 0.15); padding-top: 12px; width: 100%;"></div>
+  </div>
+</div>
+
+<!-- ════ PVP CHALLENGE OVERLAY ════ -->
+<div id="mp-challenge-overlay">
+  <div class="mp-challenge-box">
+    <div class="mp-challenge-icon">⚔️</div>
+    <div class="mp-challenge-text" id="mp-challenge-text">An opponent challenges you!</div>
+    <div class="mp-challenge-btns">
+      <button class="title-btn primary" onclick="mpAcceptChallenge()">⚔️ Accept Duel</button>
+      <button class="title-btn" onclick="mpDeclineChallenge()">🚫 Decline</button>
     </div>
   </div>
 </div>
@@ -227,9 +288,7 @@
     <div class="dialogue-body">
       <div class="dialogue-text" id="dialogue-text">Dialogue line goes here...</div>
     </div>
-    <div class="dialogue-options" id="dialogue-options">
-      <!-- Options will be generated dynamically -->
-    </div>
+    <div class="dialogue-options" id="dialogue-options"></div>
   </div>
 </div>
 
@@ -260,6 +319,28 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- PeerJS for WebRTC multiplayer (from CDN) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <script src="game.js"></script>
+<script src="multiplayer.js"></script>
+<script>
+// Show MP HUD when multiplayer game is active
+const _origUpdateHUD = updateHUD;
+updateHUD = function() {
+  _origUpdateHUD();
+  if (typeof MP !== 'undefined' && MP.isMultiplayer && MP.connected) {
+    document.getElementById('mp-hud-section').style.display = 'flex';
+    MP.updateConnectionStatus(true);
+  }
+};
+
+function toggleMpChat() {
+  const panel = document.getElementById('mp-chat-panel');
+  panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+  if (panel.style.display === 'flex') {
+    document.getElementById('mp-chat-input').focus();
+  }
+}
+</script>
 </body>
 </html>

@@ -389,6 +389,10 @@ function beginAdventure() {
   ];
 
   generateMap();
+  // Multiplayer: host shares map seed + data with guest
+  if (typeof MP !== 'undefined' && MP.isMultiplayer) {
+    MP.onMapGenerated();
+  }
   state.screen = 'playing';
   state.turn = 1;
   state.movesLeft = MOVES_PER_TURN;
@@ -415,13 +419,15 @@ function beginAdventure() {
 }
 
 // ═══ MAP GENERATION ═══
-function generateMap() {
+let mapSeed = 0;
+function generateMap(customSeed) {
   // Initialize map with noise-based biome generation
   state.map = [];
   state.revealed = [];
 
   // Simplex-like noise using layered random
-  const seed = Math.random() * 10000;
+  const seed = (customSeed !== undefined) ? customSeed : (Math.random() * 10000);
+  mapSeed = seed;
   const noise = (x, y) => {
     const n1 = Math.sin(x * 0.15 + seed) * Math.cos(y * 0.15 + seed * 0.7) * 0.5;
     const n2 = Math.sin(x * 0.08 - seed * 0.3) * Math.cos(y * 0.12 + seed * 0.5) * 0.3;
@@ -779,6 +785,11 @@ function drawMap() {
         mapCtx.fillText(state.player.class.icon, cx, cy);
       }
     }
+  }
+
+  // Multiplayer: draw opponent's position
+  if (typeof MP !== 'undefined' && MP.isMultiplayer && MP.opponentData && MP.opponentData.pos) {
+    MP.drawOpponent(mapCtx);
   }
 
   // ── Weather / Time overlay tint ──
@@ -1211,6 +1222,10 @@ function movePlayer(col, row) {
   SoundEngine.playStep();
   state.playerPos = { col, row };
   state.movesLeft--;
+  // Multiplayer: broadcast new position
+  if (typeof MP !== 'undefined' && MP.isMultiplayer) {
+    MP.broadcast('move', { col, row });
+  }
 
   // Fog of war reveal — Fog weather halves radius
   const revealRadius = state.weatherId === 'fog' ? 1 : 2;
@@ -2318,6 +2333,9 @@ function checkLevelUp() {
     addLog('level', `⬆️ LEVEL UP! You are now Level ${p.level}!`);
     showToast(`⬆️ Level ${p.level}! HP restored!`, 'level-up');
     SoundEngine.playLevelUp();
+    if (typeof MP !== 'undefined' && MP.isMultiplayer) {
+      MP.broadcast('hp_update', { hp: p.hp, maxHp: p.maxHp, level: p.level });
+    }
   }
 }
 
@@ -2546,6 +2564,18 @@ function updateLocationPanel() {
     searchBtn.innerHTML = '<span class="action-icon">🔍</span> Search Area';
     searchBtn.onclick = () => searchWilderness();
     actionsEl.appendChild(searchBtn);
+  }
+
+  // Multiplayer: show PvP challenge button if opponent is adjacent
+  if (typeof MP !== 'undefined' && MP.isMultiplayer && MP.connected && !MP.pvp.active) {
+    if (MP.isOpponentAdjacent()) {
+      const pvpBtn = document.createElement('button');
+      pvpBtn.className = 'loc-action-btn pvp-challenge-btn';
+      const oppName = MP.opponentData ? MP.opponentData.name : 'Opponent';
+      pvpBtn.innerHTML = `<span class="action-icon">⚔️</span> Challenge ${oppName}`;
+      pvpBtn.onclick = () => MP.sendChallenge();
+      actionsEl.appendChild(pvpBtn);
+    }
   }
 }
 
